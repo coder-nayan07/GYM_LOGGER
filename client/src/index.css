@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-neutral-900 text-neutral-100 font-sans antialiased;
+}
+
+input, select {
+  @apply bg-neutral-800 border border-neutral-700 rounded p-2 text-white text-lg;
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full text-center active:scale-95 transition-transform touch-manipulation;
+}
