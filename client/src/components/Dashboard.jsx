@@ -2,7 +2,8 @@ import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Calendar, Flame, TrendingUp } from 'lucide-react';
+// FIX: Added 'Dumbbell' to the import list below
+import { ChevronRight, Calendar, Flame, TrendingUp, Dumbbell } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Dashboard() {
@@ -107,6 +108,11 @@ export default function Dashboard() {
               <ChevronRight className="text-gym-input" />
             </div>
           ))}
+          {(!history || history.length === 0) && (
+            <div className="text-center p-4 text-gym-muted text-sm">
+              No workouts yet. Start one above!
+            </div>
+          )}
         </div>
       </section>
     </div>
