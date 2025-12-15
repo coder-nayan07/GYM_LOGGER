@@ -2,14 +2,16 @@ import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useNavigate } from 'react-router-dom';
-// FIX: Added 'Dumbbell' to the import list below
 import { ChevronRight, Calendar, Flame, TrendingUp, Dumbbell } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const activeWorkout = useLiveQuery(() => db.workouts.where({ status: 'active' }).first());
-  const history = useLiveQuery(() => db.workouts.where('status').equals('finished').reverse().limit(3).toArray());
+  // Sort by startTime descending (newest first)
+  const history = useLiveQuery(() => 
+    db.workouts.where('status').equals('finished').reverse().limit(5).toArray()
+  );
 
   const startWorkout = async (name) => {
     if (activeWorkout) return navigate('/workout');
@@ -24,7 +26,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-24">
       {/* Header */}
       <header className="flex justify-between items-end">
         <div>
@@ -37,7 +39,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Primary Action */}
+      {/* Primary Action Buttons */}
       <div className="grid grid-cols-2 gap-3">
         {activeWorkout ? (
            <button 
@@ -83,7 +85,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Recent History */}
+      {/* Recent History List */}
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg">Recent History</h3>
@@ -92,25 +94,37 @@ export default function Dashboard() {
         
         <div className="space-y-3">
           {history?.map(workout => (
-            <div key={workout.id} className="bg-gym-card p-4 rounded-xl border border-gym-input flex justify-between items-center">
+            <div 
+              key={workout.id} 
+              onClick={() => navigate(`/history/${workout.id}`)}
+              className="bg-gym-card p-4 rounded-xl border border-gym-input flex justify-between items-center cursor-pointer active:scale-95 transition-transform hover:border-gym-accent"
+            >
               <div className="flex items-center gap-4">
+                {/* Date Badge */}
                 <div className="w-12 h-12 bg-gym-input rounded-full flex items-center justify-center text-gym-muted font-bold text-xs flex-col">
-                  <span>{new Date(workout.startTime).getDate()}</span>
+                  <span className="text-white">{new Date(workout.startTime).getDate()}</span>
                   <span className="text-[9px] uppercase">{new Date(workout.startTime).toLocaleString('default', { month: 'short' })}</span>
                 </div>
+                
+                {/* Workout Info */}
                 <div>
                   <h4 className="font-bold text-white">{workout.name}</h4>
                   <p className="text-xs text-gym-muted flex items-center gap-1">
-                     <Calendar size={12} /> Finished
+                     <Calendar size={12} /> 
+                     {new Date(workout.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                     {workout.synced && <span className="text-gym-success ml-2">• Synced</span>}
                   </p>
                 </div>
               </div>
+              
               <ChevronRight className="text-gym-input" />
             </div>
           ))}
+
           {(!history || history.length === 0) && (
-            <div className="text-center p-4 text-gym-muted text-sm">
-              No workouts yet. Start one above!
+            <div className="text-center p-8 bg-gym-card rounded-xl border border-dashed border-gym-input">
+              <p className="text-gym-muted text-sm mb-2">No completed workouts yet.</p>
+              <p className="text-white font-bold text-sm">Tap a button above to start!</p>
             </div>
           )}
         </div>

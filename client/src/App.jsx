@@ -3,11 +3,12 @@ import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import ActiveWorkout from './components/ActiveWorkout';
+import Analytics from './components/Analytics';
+import WorkoutDetails from './components/WorkoutDetails';
 import { db } from './db';
 import { defaultExercises } from './data/exercises';
 
 function App() {
-  // Load Seed Data on first run
   useEffect(() => {
     const init = async () => {
       const count = await db.exercises.count();
@@ -20,17 +21,12 @@ function App() {
 
   return (
     <Routes>
-      {/* The Layout component wraps these routes to provide the 
-          persistent Bottom Navigation and background styles */}
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/workout" element={<ActiveWorkout />} />
-        <Route path="/analytics" element={
-          <div className="flex flex-col items-center justify-center h-64 text-gym-muted">
-            <span className="text-4xl mb-2">📊</span>
-            <p>Analytics Coming Soon</p>
-          </div>
-        } />
+        <Route path="/analytics" element={<Analytics />} />
+        {/* New Route for Details */}
+        <Route path="/history/:id" element={<WorkoutDetails />} />
       </Route>
     </Routes>
   );
