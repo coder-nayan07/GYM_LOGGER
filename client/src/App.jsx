@@ -7,6 +7,7 @@ import Analytics from './components/Analytics';
 import WorkoutDetails from './components/WorkoutDetails';
 import { db } from './db';
 import { defaultExercises } from './data/exercises';
+import Settings from './components/Settings';
 
 function App() {
   useEffect(() => {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/analytics" element={<Analytics />} />
         {/* New Route for Details */}
         <Route path="/history/:id" element={<WorkoutDetails />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
   );

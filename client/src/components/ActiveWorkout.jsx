@@ -198,11 +198,12 @@ export default function ActiveWorkout() {
         <Plus size={20} /> Add Exercise
       </button>
 
-      {/* Exercise Modal */}
+      {/* Exercise Modal - NOW PASSING activeWorkout.name as context */}
       <ExerciseSelector 
         isOpen={isSelectorOpen} 
         onClose={() => setIsSelectorOpen(false)} 
         onSelect={handleAddExercise}
+        context={activeWorkout.name} 
       />
 
       {/* Rest Timer Toast (Optional Polish) */}
