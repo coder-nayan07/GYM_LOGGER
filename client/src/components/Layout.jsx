@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, LineChart, Settings } from 'lucide-react'; // Import Settings
+import { LayoutDashboard, Dumbbell, LineChart, Settings } from 'lucide-react';
 
 const NavItem = ({ to, icon: Icon, label }) => (
   <NavLink
@@ -23,7 +23,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-gym-bg text-gym-text font-sans selection:bg-gym-accent selection:text-white">
       
-      {/* Top Bar (Only show on Dashboard) */}
+      {/* Top Bar Settings Icon */}
       {location.pathname === '/' && (
         <div className="fixed top-0 right-0 p-4 z-50">
           <button onClick={() => navigate('/settings')} className="text-gym-muted hover:text-white">
@@ -32,17 +32,25 @@ export default function Layout() {
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <main className="pb-24 px-4 pt-4 max-w-md mx-auto">
         <Outlet />
       </main>
 
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 w-full h-[80px] bg-gym-bg/90 backdrop-blur-lg border-t border-gym-input flex items-center justify-around z-50 pb-safe">
+      <nav className="fixed bottom-0 left-0 w-full h-[80px] bg-gym-bg/95 backdrop-blur-lg border-t border-gym-input flex items-center justify-around z-50 pb-safe">
         <NavItem to="/" icon={LayoutDashboard} label="Home" />
         
+        {/* Floating Center Button */}
         <div className="relative -top-6">
-          <NavLink to="/workout" className="flex items-center justify-center w-16 h-16 bg-gym-accent rounded-full shadow-lg shadow-blue-900/50 border-4 border-gym-bg">
+          <NavLink 
+            to="/workout" 
+            className={({ isActive }) => 
+              `flex items-center justify-center w-16 h-16 rounded-full shadow-lg border-4 border-gym-bg transition-transform active:scale-95 ${
+                isActive ? 'bg-gym-accent shadow-blue-500/20' : 'bg-gym-accent shadow-blue-900/20'
+              }`
+            }
+          >
             <Dumbbell size={28} color="white" fill="white" />
           </NavLink>
         </div>

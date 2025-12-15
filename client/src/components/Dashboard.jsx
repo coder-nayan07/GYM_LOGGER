@@ -2,23 +2,30 @@ import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Calendar, Flame, TrendingUp, Dumbbell } from 'lucide-react';
+import { ChevronRight, Calendar, Flame, Dumbbell, Plus } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const activeWorkout = useLiveQuery(() => db.workouts.where({ status: 'active' }).first());
-  // Sort by startTime descending (newest first)
   const history = useLiveQuery(() => 
     db.workouts.where('status').equals('finished').reverse().limit(5).toArray()
   );
 
   const startWorkout = async (name) => {
+    // If user clicks "Custom", ask for name
+    let finalName = name;
+    if (name === 'Custom') {
+      const input = window.prompt("Name your workout (e.g., 'Chest & Back'):");
+      if (!input) return; // Cancelled
+      finalName = input;
+    }
+
     if (activeWorkout) return navigate('/workout');
     
     await db.workouts.add({
       id: uuidv4(),
-      name: name,
+      name: finalName,
       startTime: new Date(),
       status: 'active'
     });
@@ -27,7 +34,6 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-24">
-      {/* Header */}
       <header className="flex justify-between items-end">
         <div>
           <h2 className="text-gym-muted text-sm uppercase tracking-wider font-semibold">Welcome Back</h2>
@@ -39,94 +45,62 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Primary Action Buttons */}
+      {/* Action Buttons */}
       <div className="grid grid-cols-2 gap-3">
         {activeWorkout ? (
            <button 
              onClick={() => navigate('/workout')}
-             className="col-span-2 bg-gradient-to-r from-gym-accent to-blue-600 rounded-2xl p-6 text-left shadow-lg shadow-blue-900/20 relative overflow-hidden"
+             className="col-span-2 bg-gradient-to-r from-gym-accent to-blue-600 rounded-2xl p-6 text-left shadow-lg relative overflow-hidden"
            >
              <div className="relative z-10">
-               <span className="bg-white/20 text-xs font-bold px-2 py-1 rounded mb-2 inline-block">IN PROGRESS</span>
+               <span className="bg-white/20 text-xs font-bold px-2 py-1 rounded mb-2 inline-block">RESUME</span>
                <h3 className="text-xl font-bold text-white mb-1">{activeWorkout.name}</h3>
-               <p className="text-blue-100 text-sm">Tap to resume tracking</p>
+               <p className="text-blue-100 text-sm">Workout in progress...</p>
              </div>
            </button>
         ) : (
           <>
-            <button 
-              onClick={() => startWorkout('Push Day')}
-              className="bg-gym-card hover:bg-gym-input border border-gym-input p-4 rounded-2xl text-left transition-all active:scale-95"
-            >
-              <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center mb-3">
-                <Dumbbell size={20} className="text-blue-500" />
-              </div>
-              <h3 className="font-bold text-lg">Push Day</h3>
-              <p className="text-xs text-gym-muted">Chest, Shoulders, Tris</p>
+            {/* Standard Splits */}
+            <button onClick={() => startWorkout('Push Day')} className="bg-gym-card p-4 rounded-2xl text-left border border-gym-input active:scale-95 transition-transform">
+              <span className="font-bold text-lg block text-white">Push</span>
+              <span className="text-xs text-gym-muted">Chest/Sh/Tri</span>
             </button>
-            <button 
-               onClick={() => startWorkout('Pull Day')}
-               className="bg-gym-card hover:bg-gym-input border border-gym-input p-4 rounded-2xl text-left transition-all active:scale-95"
-            >
-               <div className="w-10 h-10 bg-emerald-500/10 rounded-full flex items-center justify-center mb-3">
-                 <TrendingUp size={20} className="text-emerald-500" />
-               </div>
-               <h3 className="font-bold text-lg">Pull Day</h3>
-               <p className="text-xs text-gym-muted">Back, Biceps, Rear Delt</p>
+            <button onClick={() => startWorkout('Pull Day')} className="bg-gym-card p-4 rounded-2xl text-left border border-gym-input active:scale-95 transition-transform">
+              <span className="font-bold text-lg block text-white">Pull</span>
+              <span className="text-xs text-gym-muted">Back/Bi</span>
             </button>
-             <button 
-               onClick={() => startWorkout('Leg Day')}
-               className="bg-gym-card hover:bg-gym-input border border-gym-input p-4 rounded-2xl text-left transition-all active:scale-95 col-span-2"
-            >
-               <h3 className="font-bold text-lg">Leg Day</h3>
-               <p className="text-xs text-gym-muted">Quads, Hams, Calves</p>
+            <button onClick={() => startWorkout('Leg Day')} className="bg-gym-card p-4 rounded-2xl text-left border border-gym-input active:scale-95 transition-transform">
+              <span className="font-bold text-lg block text-white">Legs</span>
+              <span className="text-xs text-gym-muted">Quads/Hams</span>
+            </button>
+            
+            {/* Custom Button */}
+            <button onClick={() => startWorkout('Custom')} className="bg-gym-card p-4 rounded-2xl text-left border border-dashed border-gym-muted active:scale-95 transition-transform flex flex-col justify-center items-center">
+              <Plus className="text-gym-accent mb-1" />
+              <span className="font-bold text-white">Custom</span>
             </button>
           </>
         )}
       </div>
 
-      {/* Recent History List */}
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg">Recent History</h3>
-          <button className="text-gym-accent text-sm font-medium">View All</button>
         </div>
-        
         <div className="space-y-3">
           {history?.map(workout => (
             <div 
               key={workout.id} 
               onClick={() => navigate(`/history/${workout.id}`)}
-              className="bg-gym-card p-4 rounded-xl border border-gym-input flex justify-between items-center cursor-pointer active:scale-95 transition-transform hover:border-gym-accent"
+              className="bg-gym-card p-4 rounded-xl border border-gym-input flex justify-between items-center cursor-pointer active:bg-gym-input"
             >
-              <div className="flex items-center gap-4">
-                {/* Date Badge */}
-                <div className="w-12 h-12 bg-gym-input rounded-full flex items-center justify-center text-gym-muted font-bold text-xs flex-col">
-                  <span className="text-white">{new Date(workout.startTime).getDate()}</span>
-                  <span className="text-[9px] uppercase">{new Date(workout.startTime).toLocaleString('default', { month: 'short' })}</span>
-                </div>
-                
-                {/* Workout Info */}
-                <div>
-                  <h4 className="font-bold text-white">{workout.name}</h4>
-                  <p className="text-xs text-gym-muted flex items-center gap-1">
-                     <Calendar size={12} /> 
-                     {new Date(workout.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                     {workout.synced && <span className="text-gym-success ml-2">• Synced</span>}
-                  </p>
-                </div>
+              <div>
+                <h4 className="font-bold text-white">{workout.name}</h4>
+                <p className="text-xs text-gym-muted">{new Date(workout.startTime).toLocaleDateString()}</p>
               </div>
-              
               <ChevronRight className="text-gym-input" />
             </div>
           ))}
-
-          {(!history || history.length === 0) && (
-            <div className="text-center p-8 bg-gym-card rounded-xl border border-dashed border-gym-input">
-              <p className="text-gym-muted text-sm mb-2">No completed workouts yet.</p>
-              <p className="text-white font-bold text-sm">Tap a button above to start!</p>
-            </div>
-          )}
         </div>
       </section>
     </div>

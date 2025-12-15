@@ -11,16 +11,18 @@ import { defaultExercises } from './data/exercises';
 
 function App() {
   
-  // This logic now CHECKS and UPDATES your exercise list automatically
+  // FORCE DB UPDATE LOGIC
   useEffect(() => {
     const init = async () => {
       const exerciseCount = await db.exercises.count();
       
-      // If we have very few exercises (old data), or none, let's reload the full database
-      if (exerciseCount < 10) { 
-        console.log("Upgrading Exercise Database...");
+      // If count doesn't match our new list length, or is 0, we reset.
+      // This ensures you get the new "Smart" exercise list.
+      if (exerciseCount === 0 || exerciseCount < defaultExercises.length) { 
+        console.log("Database out of sync. Upgrading exercises...");
         await db.exercises.clear();
         await db.exercises.bulkAdd(defaultExercises);
+        console.log("Exercises upgraded!");
       }
     };
     init();

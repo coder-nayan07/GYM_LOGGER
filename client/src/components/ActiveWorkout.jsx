@@ -8,13 +8,26 @@ import ExerciseSelector from './ExerciseSelector';
 
 export default function ActiveWorkout() {
   const navigate = useNavigate();
+  // Using useLiveQuery ensures we react to changes instantly
   const activeWorkout = useLiveQuery(() => db.workouts.where({ status: 'active' }).first());
   const activeLogs = useLiveQuery(() => activeWorkout ? db.logs.where({ workoutId: activeWorkout.id }).toArray() : []);
   
   const [elapsed, setElapsed] = useState(0);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
-  // Timer Logic
+  // REDIRECT IF NO WORKOUT
+  useEffect(() => {
+    // If useLiveQuery has finished loading (it returns undefined while loading, null if not found)
+    // Actually dexie-react-hooks returns undefined initially, so we check carefully
+    const checkStatus = async () => {
+      const count = await db.workouts.where({ status: 'active' }).count();
+      if (count === 0) {
+        navigate('/'); // Go back home if no workout active
+      }
+    };
+    checkStatus();
+  }, [navigate]);
+
   useEffect(() => {
     if(!activeWorkout) return;
     const interval = setInterval(() => {
@@ -43,6 +56,7 @@ export default function ActiveWorkout() {
   };
 
   const handleAddExercise = async (name) => {
+    if (!activeWorkout) return;
     await db.logs.add({
       id: uuidv4(),
       workoutId: activeWorkout.id,
@@ -72,11 +86,10 @@ export default function ActiveWorkout() {
     await db.logs.update(logId, { sets: [...log.sets, newSet] });
   };
 
-  if (!activeWorkout) return <div className="p-10 text-center text-white">Loading workout...</div>;
+  if (!activeWorkout) return null; // Don't show "Loading" text, just wait for redirect
 
   return (
     <div className="pb-32">
-      {/* Top Bar */}
       <div className="sticky top-0 bg-gym-bg/95 backdrop-blur z-40 py-4 border-b border-gym-input flex justify-between items-center mb-6">
         <div>
            <h2 className="font-bold text-white leading-tight">{activeWorkout.name}</h2>
@@ -86,13 +99,12 @@ export default function ActiveWorkout() {
         </div>
         <button 
           onClick={finishWorkout} 
-          className="bg-gym-success text-black font-bold px-4 py-2 rounded-lg text-sm active:scale-95 transition-transform"
+          className="bg-gym-success text-black font-bold px-4 py-2 rounded-lg text-sm"
         >
           Finish
         </button>
       </div>
 
-      {/* Exercises */}
       <div className="space-y-6">
         {activeLogs?.map(log => (
           <div key={log.id} className="bg-gym-card rounded-2xl overflow-hidden border border-gym-input shadow-md">
@@ -116,14 +128,14 @@ export default function ActiveWorkout() {
                   <div className="col-span-2 text-center text-gym-muted text-xs">-</div>
                   <div className="col-span-3">
                     <input 
-                      type="number" inputMode="decimal" placeholder="0"
+                      type="number" inputMode="decimal"
                       value={set.weight} onChange={(e) => updateSet(log.id, index, 'weight', e.target.value)}
                       className="w-full bg-gym-input text-center text-white py-3 rounded-lg font-bold outline-none focus:ring-1 focus:ring-gym-accent"
                     />
                   </div>
                   <div className="col-span-3">
                     <input 
-                      type="number" inputMode="decimal" placeholder="0"
+                      type="number" inputMode="decimal"
                       value={set.reps} onChange={(e) => updateSet(log.id, index, 'reps', e.target.value)}
                       className="w-full bg-gym-input text-center text-white py-3 rounded-lg font-bold outline-none focus:ring-1 focus:ring-gym-accent"
                     />
@@ -154,7 +166,6 @@ export default function ActiveWorkout() {
         <Plus size={20} /> Add Exercise
       </button>
 
-      {/* MODAL IS HERE - PASSING THE CONTEXT */}
       <ExerciseSelector 
         isOpen={isSelectorOpen} 
         onClose={() => setIsSelectorOpen(false)} 
