@@ -1,31 +1,28 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
         gym: {
-          bg: '#0a0a0a',       // Darker than neutral-900
-          card: '#171717',     // neutral-900
-          input: '#262626',    // neutral-800
-          accent: '#3b82f6',   // blue-500
-          success: '#10b981',  // emerald-500
-          danger: '#ef4444',   // red-500
-          text: '#f5f5f5',     // neutral-100
-          muted: '#737373',    // neutral-500
+          bg: '#0a0a0a',       // Deep black background
+          card: '#171717',     // Card background
+          input: '#262626',    // Input fields
+          accent: '#3b82f6',   // Blue primary
+          success: '#10b981',  // Green success
+          danger: '#ef4444',   // Red delete
+          text: '#f5f5f5',     // White text
+          muted: '#737373',    // Gray text
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
-      animation: {
-        'slide-up': 'slideUp 0.3s ease-out forwards',
-      },
-      keyframes: {
-        slideUp: {
-          '0%': { transform: 'translateY(100%)' },
-          '100%': { transform: 'translateY(0)' },
-        }
+      padding: {
+        'safe': 'env(safe-area-inset-bottom)',
       }
     },
   },
