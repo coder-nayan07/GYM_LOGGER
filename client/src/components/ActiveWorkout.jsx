@@ -1,46 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
-import { defaultExercises } from '../data/exercises';
 import { v4 as uuidv4 } from 'uuid';
-import { Play, Plus, Trash2, Save, History, Timer } from 'lucide-react';
+import { Timer, Check, MoreVertical, Plus, Trash2, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ExerciseSelector from './ExerciseSelector';
 
 export default function ActiveWorkout() {
   const navigate = useNavigate();
-  // Check if there is an active workout
   const activeWorkout = useLiveQuery(() => db.workouts.where({ status: 'active' }).first());
   const activeLogs = useLiveQuery(() => activeWorkout ? db.logs.where({ workoutId: activeWorkout.id }).toArray() : []);
   
-  const [selectedExercise, setSelectedExercise] = useState('');
-  const [timer, setTimer] = useState(0);
-  const [timerActive, setTimerActive] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [restTimer, setRestTimer] = useState(null); // Tracks the start time of rest
 
-  // Timer logic
+  // Global Workout Timer
   useEffect(() => {
-    let interval = null;
-    if (timerActive) {
-      interval = setInterval(() => setTimer((t) => t + 1), 1000);
-    } else if (!timerActive && timer !== 0) {
-      clearInterval(interval);
-    }
+    if(!activeWorkout) return;
+    const interval = setInterval(() => {
+        const start = new Date(activeWorkout.startTime);
+        const now = new Date();
+        setElapsed(Math.floor((now - start) / 1000));
+    }, 1000);
     return () => clearInterval(interval);
-  }, [timerActive, timer]);
+  }, [activeWorkout]);
 
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-  };
-
-  const startWorkout = async (name) => {
-    const id = uuidv4();
-    await db.workouts.add({
-      id,
-      name: name || 'Quick Workout',
-      startTime: new Date(),
-      status: 'active'
-    });
+  // Helper to format time
+  const formatTime = (sec) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return `${h ? h+':' : ''}${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
   };
 
   const finishWorkout = async () => {
@@ -48,144 +39,178 @@ export default function ActiveWorkout() {
     await db.workouts.update(activeWorkout.id, {
       status: 'finished',
       endTime: new Date(),
-      synced: false // Mark for backend sync
+      synced: false
     });
-    
-    // Attempt Sync
-    try {
-        const finishedWorkout = await db.workouts.get(activeWorkout.id);
-        const logs = await db.logs.where({ workoutId: activeWorkout.id }).toArray();
-        
-        // Simple Sync Fetch (Replace localhost with real backend URL in production)
-        await fetch(import.meta.env.VITE_API_URL + '/api/sync', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ workouts: [finishedWorkout], logs })
-        });
-        await db.workouts.update(activeWorkout.id, { synced: true });
-    } catch(err) {
-        console.log("Offline mode: saved locally");
-    }
-    
     navigate('/');
   };
 
-  const addExercise = async () => {
-    if (!selectedExercise) return;
+  const handleAddExercise = async (name) => {
     await db.logs.add({
       id: uuidv4(),
       workoutId: activeWorkout.id,
-      exerciseName: selectedExercise,
+      exerciseName: name,
       sets: [{ weight: '', reps: '', completed: false }]
     });
-    setSelectedExercise('');
   };
 
-  const updateSet = async (logId, setIndex, field, value) => {
+  // Optimized Set Update - Auto-saves to DB
+  const updateSet = (logId, setIndex, field, value) => {
     const log = activeLogs.find(l => l.id === logId);
     const newSets = [...log.sets];
     newSets[setIndex][field] = value;
-    await db.logs.update(logId, { sets: newSets });
+    db.logs.update(logId, { sets: newSets });
+  };
+
+  const toggleSetComplete = (logId, setIndex) => {
+    const log = activeLogs.find(l => l.id === logId);
+    const newSets = [...log.sets];
+    newSets[setIndex].completed = !newSets[setIndex].completed;
+    
+    // Trigger Rest Timer logic here if completed
+    if(newSets[setIndex].completed) {
+        setRestTimer(Date.now()); 
+    }
+    
+    db.logs.update(logId, { sets: newSets });
   };
 
   const addSet = async (logId) => {
     const log = activeLogs.find(l => l.id === logId);
-    // Auto-fill previous weight/reps
-    const lastSet = log.sets[log.sets.length - 1];
+    const lastSet = log.sets[log.sets.length - 1] || { weight: '', reps: '' };
+    // Auto-copy previous data for speed
     const newSet = { weight: lastSet.weight, reps: lastSet.reps, completed: false };
     await db.logs.update(logId, { sets: [...log.sets, newSet] });
   };
 
-  if (!activeWorkout) {
-    return (
-      <div className="p-4 flex flex-col gap-4 h-full justify-center">
-        <h2 className="text-2xl font-bold text-center mb-8">Start Workout</h2>
-        {['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body'].map(split => (
-          <button key={split} onClick={() => startWorkout(split)} className="btn-primary bg-neutral-800 border border-neutral-700">
-            {split}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  if (!activeWorkout) return <div className="p-10 text-center">Loading...</div>;
 
   return (
-    <div className="pb-24 p-4 max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-4 sticky top-0 bg-neutral-900 z-10 py-2">
+    <div className="pb-32">
+      {/* Sticky Top Bar */}
+      <div className="sticky top-0 bg-gym-bg/95 backdrop-blur z-40 py-4 border-b border-gym-input flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-xl font-bold text-blue-400">{activeWorkout.name}</h2>
-          <div className="flex items-center gap-2 text-sm text-neutral-400" onClick={() => setTimerActive(!timerActive)}>
-             <Timer size={16} /> {formatTime(timer)}
-          </div>
+           <h2 className="font-bold text-white leading-tight">{activeWorkout.name}</h2>
+           <div className="text-gym-accent flex items-center gap-1 text-sm font-mono">
+             <Timer size={14} /> {formatTime(elapsed)}
+           </div>
         </div>
-        <button onClick={finishWorkout} className="bg-green-600 px-4 py-2 rounded font-bold">Finish</button>
-      </div>
-
-      <div className="flex gap-2 mb-6">
-        <select 
-          className="flex-1 w-full" 
-          value={selectedExercise} 
-          onChange={(e) => setSelectedExercise(e.target.value)}
+        <button 
+          onClick={finishWorkout} 
+          className="bg-gym-success text-black font-bold px-4 py-2 rounded-lg text-sm active:scale-95 transition-transform"
         >
-          <option value="">Select Exercise...</option>
-          {defaultExercises.map(ex => (
-            <option key={ex.id} value={ex.name}>{ex.name}</option>
-          ))}
-        </select>
-        <button onClick={addExercise} className="bg-blue-600 p-2 rounded"><Plus /></button>
+          Finish
+        </button>
       </div>
 
-      <div className="flex flex-col gap-6">
+      {/* Exercise List */}
+      <div className="space-y-6">
         {activeLogs?.map(log => (
-          <div key={log.id} className="bg-neutral-800 p-3 rounded-lg shadow-lg">
-            <div className="flex justify-between items-center mb-2 border-b border-neutral-700 pb-2">
-              <h3 className="font-bold text-lg">{log.exerciseName}</h3>
-              <button className="text-red-400"><Trash2 size={16} /></button>
-            </div>
-            
-            <div className="grid grid-cols-4 gap-2 text-xs text-neutral-400 text-center mb-1">
-              <span>SET</span>
-              <span>KG</span>
-              <span>REPS</span>
-              <span>✓</span>
+          <div key={log.id} className="bg-gym-card rounded-2xl overflow-hidden border border-gym-input shadow-md">
+            {/* Exercise Header */}
+            <div className="p-4 bg-gym-input/50 flex justify-between items-center border-b border-gym-input">
+              <h3 className="font-bold text-white text-lg">{log.exerciseName}</h3>
+              <button className="text-gym-muted hover:text-white"><MoreVertical size={20} /></button>
             </div>
 
-            {log.sets.map((set, index) => (
-              <div key={index} className="grid grid-cols-4 gap-2 mb-2 items-center">
-                <div className="text-center font-mono bg-neutral-700 rounded py-2">{index + 1}</div>
-                <input 
-                  type="number" 
-                  placeholder="kg"
-                  value={set.weight} 
-                  onChange={(e) => updateSet(log.id, index, 'weight', e.target.value)}
-                  className="w-full text-center"
-                />
-                <input 
-                  type="number" 
-                  placeholder="reps"
-                  value={set.reps} 
-                  onChange={(e) => updateSet(log.id, index, 'reps', e.target.value)}
-                  className="w-full text-center"
-                />
-                <button 
-                  onClick={() => {
-                    updateSet(log.id, index, 'completed', !set.completed);
-                    if(!set.completed) setTimer(0); // Reset timer on complete set
-                    setTimerActive(true);
-                  }}
-                  className={`h-full rounded flex items-center justify-center ${set.completed ? 'bg-green-600' : 'bg-neutral-600'}`}
+            {/* Sets Header */}
+            <div className="grid grid-cols-10 gap-2 p-2 text-xs text-gym-muted font-bold text-center uppercase tracking-wider">
+              <div className="col-span-1">Set</div>
+              <div className="col-span-2">Prev</div>
+              <div className="col-span-3">kg</div>
+              <div className="col-span-3">Reps</div>
+              <div className="col-span-1">✓</div>
+            </div>
+
+            {/* Sets Rows */}
+            <div className="p-2 space-y-2">
+              {log.sets.map((set, index) => (
+                <div 
+                   key={index} 
+                   className={`grid grid-cols-10 gap-2 items-center transition-opacity ${set.completed ? 'opacity-50' : 'opacity-100'}`}
                 >
-                  <History size={16} />
-                </button>
-              </div>
-            ))}
-            
-            <button onClick={() => addSet(log.id)} className="w-full bg-neutral-700 py-2 mt-2 rounded text-sm text-neutral-300">
-              + Add Set
+                  {/* Set Number */}
+                  <div className="col-span-1 flex items-center justify-center">
+                    <span className="w-6 h-6 rounded-full bg-gym-input text-gym-muted text-xs flex items-center justify-center font-mono">
+                      {index + 1}
+                    </span>
+                  </div>
+
+                  {/* Previous Data (Mocked for now) */}
+                  <div className="col-span-2 text-center text-gym-muted text-xs font-mono">
+                    -
+                  </div>
+
+                  {/* Weight Input */}
+                  <div className="col-span-3">
+                    <input 
+                      type="number" 
+                      inputMode="decimal"
+                      value={set.weight} 
+                      onChange={(e) => updateSet(log.id, index, 'weight', e.target.value)}
+                      placeholder="0"
+                      className={`w-full bg-gym-input text-center text-white font-bold py-3 rounded-lg border-2 ${set.completed ? 'border-transparent' : 'border-transparent focus:border-gym-accent'} outline-none`}
+                    />
+                  </div>
+
+                  {/* Reps Input */}
+                  <div className="col-span-3">
+                    <input 
+                      type="number" 
+                      inputMode="decimal"
+                      value={set.reps} 
+                      onChange={(e) => updateSet(log.id, index, 'reps', e.target.value)}
+                      placeholder="0"
+                      className={`w-full bg-gym-input text-center text-white font-bold py-3 rounded-lg border-2 ${set.completed ? 'border-transparent' : 'border-transparent focus:border-gym-accent'} outline-none`}
+                    />
+                  </div>
+
+                  {/* Check Button */}
+                  <div className="col-span-1 flex justify-center">
+                    <button 
+                      onClick={() => toggleSetComplete(log.id, index)}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                        set.completed ? 'bg-gym-success text-black' : 'bg-gym-input text-gym-muted'
+                      }`}
+                    >
+                      <Check size={20} strokeWidth={3} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add Set Button */}
+            <button 
+              onClick={() => addSet(log.id)}
+              className="w-full py-3 bg-gym-input/30 text-gym-accent font-semibold text-sm hover:bg-gym-input/50 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus size={16} /> Add Set
             </button>
           </div>
         ))}
       </div>
+
+      {/* Add Exercise Floating Button (Bottom of list) */}
+      <button 
+        onClick={() => setIsSelectorOpen(true)}
+        className="w-full mt-6 py-4 border-2 border-dashed border-gym-input rounded-xl text-gym-muted hover:text-white hover:border-gym-accent transition-colors flex items-center justify-center gap-2 font-bold"
+      >
+        <Plus size={20} /> Add Exercise
+      </button>
+
+      {/* Exercise Modal */}
+      <ExerciseSelector 
+        isOpen={isSelectorOpen} 
+        onClose={() => setIsSelectorOpen(false)} 
+        onSelect={handleAddExercise}
+      />
+
+      {/* Rest Timer Toast (Optional Polish) */}
+      {restTimer && (
+        <div className="fixed bottom-24 right-4 bg-gym-card border border-gym-accent text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-mono animate-bounce">
+            <Clock size={16} className="text-gym-accent"/> Rest Started
+        </div>
+      )}
     </div>
   );
 }
